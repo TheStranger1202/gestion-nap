@@ -15,8 +15,6 @@ Para el proyecto **Gestión NAP**, esta documentación cumple cuatro objetivos c
 1. **Trazabilidad y Evidencia Académica:** Demuestra que el esquema de base de datos no es una colección improvisada de tablas, sino la traducción directa de estándares reales de telecomunicaciones (**ITU-T G.984**, **TIA/EIA-598**, **TM Forum SID**) y reglas territoriales del Municipio Plaza (Guarenas).
 2. **Contrato de Integración Futura (OLT/SNMP y CRM):** Establece las llaves naturales, coordenadas jerárquicas PON y campos OID necesarios para conectar recolectores SNMP reales (Huawei/ZTE) sin tener que rediseñar ni migrar destructivamente la base de datos.
 3. **Blindaje de Seguridad e Integridad:** Documenta las defensas activas contra corrupción de datos (llaves foráneas forzadas en SQLite, restricciones compuestas `UNIQUE`, validaciones cruzadas de dominio) y las responsabilidades delegadas a las capas superiores.
-4. **Guía de Estudio para Defensa Oral:** Traduce las implementaciones en `SQLModel` y `Pytest` a conceptos claros para responder con solvencia ante el jurado evaluador.
-
 ---
 
 ## 2. Estándares de la Industria Aplicados al Diseño
@@ -156,22 +154,3 @@ Para reproducir o auditar todo el trabajo realizado hasta este punto desde cero:
 
 ---
 
-## 7. Guía de Estudio para la Defensa Oral (Preguntas del Jurado)
-
-**1. ¿Por qué eligieron SQLite + SQLModel en lugar de PostgreSQL o MySQL para este sistema?**  
-> *Respuesta:* Porque la arquitectura exige portabilidad inmediata (*zero-setup*) y ejecución 100% local durante la defensa sin depender de servidores externos ni redes. `SQLModel` nos permite definir cada entidad una sola vez como tabla relacional de SQLAlchemy y esquema de validación JSON de Pydantic v2, reduciendo código duplicado y manteniendo compatibilidad estándar SQL si en el futuro se migra `DATABASE_URL` a PostgreSQL.
-
-**2. SQLite por defecto no exige llaves foráneas. ¿Cómo garantizan que no queden puertos o lecturas huérfanas?**  
-> *Respuesta:* En `app/core/database.py` registramos un *event listener* de SQLAlchemy (`@event.listens_for(Engine, "connect")`) que ejecuta automáticamente `PRAGMA foreign_keys=ON;` cada vez que se abre una conexión. Esto está verificado por prueba automatizada en `tests/test_models.py`.
-
-**3. ¿Cómo soporta este modelo una integración futura con equipos OLT reales vía SNMP sin cambiar las tablas?**  
-> *Respuesta:* Siguiendo el estándar TM Forum SID y RFC 2578, incluimos campos opcionales de anclaje físico y lógico: `olt_origen`, `puerto_pon_olt` y `snmp_oid_base` en `naps`, junto con `serial_ont` y `snmp_oid_puerto` en `puertos`. Además, `lecturas_potencia` incluye el campo `fuente_dato` (`MANUAL`, `SIMULADOR`, `SNMP_OLT`), permitiendo que un demonio recolector SNMP inserte mediciones directamente en el mismo historial.
-
-**4. ¿Por qué `puerto_id` es opcional (`NULL`) en la tabla `auditorias`, pero `nap_id` es obligatorio?**  
-> *Respuesta:* Porque en planta externa existen dos alcances de fiscalización: una auditoría general de la envolvente de la caja (por ejemplo, vandalismo, sellado hermético o macrocurvatura en la bandeja de empalmes, donde `puerto_id` es `NULL`) y una auditoría puntual sobre la acometida de un suscriptor específico (como un conector `SC/APC` sucio en el puerto 3).
-
-**5. ¿Cómo evitan que un operador registre una caja NAP con un código válido sintácticamente pero en la zona equivocada?**  
-> *Respuesta:* Aplicamos doble barrera en `NAPBase`: primero un `@field_validator` con expresión regular valida la estructura `PLZ-Z0[1-8]-[SECTOR]-D000-000-[A|F|S]`, y luego un `@model_validator` cruza el código contra el catálogo territorial del Municipio Plaza (`SECTORES_POR_ZONA`), rechazando combinaciones incoherentes como el sector `NCA` (Nueva Casarapa) asignado a `Z01` (Casco Central).
-
-**6. ¿Qué diferencia hay entre las clases `NAP` y `NAPCreate` en `app/models/nap.py`?**  
-> *Respuesta:* `NAPCreate` es el esquema de validación de entrada que filtra y valida los datos enviados por el usuario antes de tocar la base de datos. `NAP` (con `table=True`) es el modelo ORM que mapea las columnas hacia SQLite e incorpora campos generados por el servidor como `id` y `creado_en`.
