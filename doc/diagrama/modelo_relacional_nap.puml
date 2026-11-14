@@ -1,0 +1,130 @@
+@startuml modelo_relacional_nap
+
+hide circle
+hide methods
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 6
+skinparam class {
+    BackgroundColor #FFFFFF
+    BorderColor #2C3E50
+    ArrowColor #2C3E50
+    HeaderBackgroundColor #ECF0F1
+    FontName SansSerif
+    FontSize 11
+}
+skinparam note {
+    BackgroundColor #FEF9E7
+    BorderColor #F1C40F
+    FontSize 10
+}
+
+title Modelo Relacional FTTH-GPON - Gestión NAP (SQLite / SQLModel)
+
+class naps <<Tabla Principal / Planta Externa>> {
+    + id : INTEGER <<PK>>
+    --
+    + codigo_nap : VARCHAR(25) <<UQ, IDX>>
+    + zona : VARCHAR(3)
+    + sector : VARCHAR(3)
+    + ubicacion_referencia : VARCHAR(255)
+    + latitud : FLOAT
+    + longitud : FLOAT
+    + tipo_montaje : CHAR(1)
+    + capacidad_puertos : INTEGER
+    + splitter_ratio : VARCHAR(5)
+    + atenuacion_splitter_db : FLOAT
+    + cable_distribucion : VARCHAR(50)
+    + tubo_color_tia598 : VARCHAR(20)
+    + hilo_color_tia598 : VARCHAR(20)
+    + olt_origen : VARCHAR(50) <<NULL>>
+    + puerto_pon_olt : VARCHAR(20) <<NULL>>
+    + snmp_oid_base : VARCHAR(120) <<NULL>>
+    + estado_fisico : VARCHAR(20)
+    + creado_en : DATETIME
+}
+
+class puertos <<Tabla / Distribución Óptica>> {
+    + id : INTEGER <<PK>>
+    --
+    # nap_id : INTEGER <<FK, UQ1, IDX>>
+    + numero_puerto : INTEGER <<UQ1>>
+    + tipo_conector : VARCHAR(15)
+    + estado_puerto : VARCHAR(20)
+    + codigo_cliente : VARCHAR(50) <<NULL>>
+    + serial_ont : VARCHAR(32) <<NULL>>
+    + snmp_oid_puerto : VARCHAR(150) <<NULL>>
+    + actualizado_en : DATETIME
+}
+
+class lecturas_potencia <<Tabla / Telemetría ITU-T G.984>> {
+    + id : INTEGER <<PK>>
+    --
+    # puerto_id : INTEGER <<FK, IDX>>
+    + potencia_rx_1490_dbm : FLOAT
+    + potencia_tx_1310_dbm : FLOAT <<NULL>>
+    + delta_atenuacion_db : FLOAT <<NULL>>
+    + clase_sfp : VARCHAR(5)
+    + estado_calculado : VARCHAR(15)
+    + fuente_dato : VARCHAR(20)
+    + timestamp : DATETIME <<IDX>>
+}
+
+class auditorias <<Tabla / Fiscalización en Campo>> {
+    + id : INTEGER <<PK>>
+    --
+    # nap_id : INTEGER <<FK, IDX>>
+    # puerto_id : INTEGER <<FK, NULL>>
+    # usuario_id : INTEGER <<FK>>
+    + diagnostico : VARCHAR(30)
+    + observaciones : TEXT
+    + evidencia_url : VARCHAR(255) <<NULL>>
+    + fecha_auditoria : DATETIME
+}
+
+class users <<Tabla Referenciada / Auth>> {
+    + id : INTEGER <<PK>>
+    --
+    + username : VARCHAR(50) <<UQ, IDX>>
+    + email : VARCHAR(120) <<UQ>>
+    + hashed_password : VARCHAR(255)
+    + rol : VARCHAR(20)
+    + activo : BOOLEAN
+    + creado_en : DATETIME
+}
+
+' Relaciones y Cardinalidades
+naps "1" *-- "1..16" puertos : contiene >
+puertos "1" o-- "0..*" lecturas_potencia : registra >
+naps "1" -- "0..*" auditorias : inspeccionada en >
+puertos "0..1" -- "0..*" auditorias : auditado en >
+users "1" -- "0..*" auditorias : ejecuta >
+
+note right of naps
+  **Nomenclatura Territorial:**
+  Regex: ^PLZ-Z0[1-8]-[A-Z]{3}-D\d{3}-\d{3}-[AFS]$
+  Coordenadas WGS84 (EPSG:4326).
+  Anclaje OLT/SNMP opcional para integración futura.
+end note
+
+note right of puertos
+  **Restricción Compuesta (UQ1):**
+  UNIQUE(nap_id, numero_puerto)
+  Conector estándar: SC/APC.
+  serial_ont y snmp_oid_puerto enlazan CRM y OLT.
+end note
+
+note bottom of lecturas_potencia
+  **Clasificación ITU-T G.984 (SFP B+ / C+):**
+  OPTIMO | CRITICO | CAIDO
+  fuente_dato: MANUAL | SIMULADOR | SNMP_OLT
+end note
+
+note left of auditorias
+  **Integridad de Alcance:**
+  puerto_id es NULL si la auditoría
+  aplica a la caja NAP completa.
+end note
+
+@enduml
