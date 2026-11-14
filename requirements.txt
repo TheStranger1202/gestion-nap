@@ -1,0 +1,20 @@
+# Framework Web y Servidor ASGI
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# ORM y Validación de Datos (SQLite + Pydantic v2)
+sqlmodel==0.0.22
+email-validator==2.2.0
+
+# Seguridad, Hashing de Contraseñas y Tokens JWT
+PyJWT==2.10.1
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.20
+
+# Gestión de Variables de Entorno
+python-dotenv==1.0.1
+
+# Pruebas Unitarias y Cliente HTTP
+pytest==8.3.4
+httpx==0.28.1

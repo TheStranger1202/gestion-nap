@@ -1,15 +1,21 @@
-# Entorno virtual y Python
+# Entornos virtuales
 venv/
 .venv/
-__pycache__/
-*.pyc
+env/
 
-# Base de datos local y variables sensibles
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Base de datos SQLite local y variables de entorno
 *.db
+*.sqlite
 *.sqlite3
 .env
 
-# Archivos de editor/sistema
+# Editores e IDE
 .vscode/
 .idea/
-.DS_Store
+*.swp
