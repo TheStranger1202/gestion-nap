@@ -18,3 +18,5 @@ python-dotenv==1.0.1
 # Pruebas Unitarias y Cliente HTTP
 pytest==8.3.4
 httpx==0.28.1
+playwright==1.65.2
+pytest-playwright==0.10.0
