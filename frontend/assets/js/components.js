@@ -2,44 +2,54 @@
  * Componentes visuales reutilizables para marcadores y popups GIS de cajas NAP.
  */
 const NapComponents = (() => {
-  // Diccionario de estilos condicionales según `estado_general`
+  'use strict';
+
   const STATUS_CONFIG = {
     OPTIMO: {
-      hex: '#10b981',        // Emerald 500
-      stroke: '#047857',     // Emerald 700
+      hex: '#10b981',
+      stroke: '#047857',
       badgeBg: 'bg-emerald-50',
       badgeText: 'text-emerald-700',
       badgeBorder: 'border-emerald-200',
-      isCritical: false
+      isCritical: false,
     },
     ADVERTENCIA: {
-      hex: '#f59e0b',        // Amber 500
-      stroke: '#b45309',     // Amber 700
+      hex: '#f59e0b',
+      stroke: '#b45309',
       badgeBg: 'bg-amber-50',
       badgeText: 'text-amber-700',
       badgeBorder: 'border-amber-200',
-      isCritical: false
+      isCritical: false,
     },
     CRITICO: {
-      hex: '#e11d48',        // Rose 600
-      stroke: '#9f1239',     // Rose 800
+      hex: '#e11d48',
+      stroke: '#9f1239',
       badgeBg: 'bg-rose-50',
       badgeText: 'text-rose-700',
       badgeBorder: 'border-rose-200',
-      isCritical: true
+      isCritical: true,
     },
     DEFAULT: {
-      hex: '#64748b',        // Slate 500
-      stroke: '#334155',     // Slate 700
+      hex: '#64748b',
+      stroke: '#334155',
       badgeBg: 'bg-slate-100',
       badgeText: 'text-slate-700',
       badgeBorder: 'border-slate-200',
-      isCritical: false
-    }
+      isCritical: false,
+    },
   };
 
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function getStatusStyle(estadoGeneral) {
-    const key = (estadoGeneral || '').toUpperCase();
+    const key = String(estadoGeneral || '').toUpperCase();
     return STATUS_CONFIG[key] || STATUS_CONFIG.DEFAULT;
   }
 
@@ -70,57 +80,62 @@ const NapComponents = (() => {
       className: 'nap-custom-pin',
       html: svgHtml,
       iconSize: [36, 44],
-      iconAnchor: [18, 42],   // Punta exacta del pin sobre la coordenada WGS84
-      popupAnchor: [0, -38]   // Apertura limpia del popup encima del marcador
+      iconAnchor: [18, 42],
+      popupAnchor: [0, -38],
     });
   }
 
   /**
-   * Construye el HTML interno para el Popup nativo de Leaflet.
+   * Construye el HTML sanitizado para el Popup nativo de Leaflet.
    */
   function createNapPopupContent(nap) {
     const style = getStatusStyle(nap.estado_general);
+    const safeId = Number.isFinite(Number(nap.id)) ? Number(nap.id) : 0;
+    const safeCodigo = escapeHtml(nap.codigo_nap);
+    const safeEstadoGeneral = escapeHtml(nap.estado_general);
+    const safeEstadoFisico = escapeHtml(nap.estado_fisico);
+    const safeZona = escapeHtml(nap.zona);
+    const safeSector = escapeHtml(nap.sector);
+    const safeCapacidad = escapeHtml(nap.capacidad_puertos);
+    const safeUbicacion = escapeHtml(nap.ubicacion_referencia);
 
     return `
       <div class="p-3.5 font-sans text-slate-800">
-        <!-- Encabezado con Código NAP -->
         <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-100">
           <div>
             <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 block">
               Código Identificador
             </span>
             <h3 class="text-xs font-bold text-slate-900 font-mono tracking-tight mt-0.5">
-              ${nap.codigo_nap}
+              ${safeCodigo}
             </h3>
           </div>
           <span class="px-2 py-0.5 text-[10px] font-bold rounded-full border ${style.badgeBg} ${style.badgeText} ${style.badgeBorder}">
-            ${nap.estado_general}
+            ${safeEstadoGeneral}
           </span>
         </div>
 
-        <!-- Metadatos Operativos -->
         <div class="py-2.5 space-y-1.5 text-xs">
           <div class="flex items-center justify-between">
             <span class="text-slate-500">Estado Físico:</span>
-            <span class="font-semibold text-slate-800">${nap.estado_fisico}</span>
+            <span class="font-semibold text-slate-800">${safeEstadoFisico}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-slate-500">Zona / Sector:</span>
-            <span class="font-medium text-slate-700">${nap.zona} · ${nap.sector}</span>
+            <span class="font-medium text-slate-700">${safeZona} · ${safeSector}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-slate-500">Capacidad:</span>
-            <span class="font-medium text-slate-700">${nap.capacidad_puertos} puertos</span>
+            <span class="font-medium text-slate-700">${safeCapacidad} puertos</span>
           </div>
           <p class="text-[11px] text-slate-500 pt-1 leading-snug">
-            ${nap.ubicacion_referencia}
+            ${safeUbicacion}
           </p>
         </div>
 
-        <!-- Botón de Acción -->
         <button
           type="button"
-          data-nap-id="${nap.id}"
+          data-nap-id="${safeId}"
           class="btn-ver-detalles w-full mt-1 py-2 px-3 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
         >
           <span>Ver Detalles</span>
@@ -132,8 +147,8 @@ const NapComponents = (() => {
     `;
   }
 
-  return {
+  return Object.freeze({
     createNapMarkerIcon,
-    createNapPopupContent
-  };
+    createNapPopupContent,
+  });
 })();

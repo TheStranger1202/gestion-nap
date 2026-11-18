@@ -68,13 +68,26 @@
         </a>
       </nav>
 
-      <!-- Botón Discreto para Editar JSON -->
-      <button onclick="toggleJsonEditor()" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer">
-        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-        </svg>
-        Editar JSON Mock
-      </button>
+      <!-- Acciones de Cabecera -->
+      <div class="flex items-center gap-2">
+        <button onclick="toggleJsonEditor()" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer">
+          <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+          </svg>
+          Editar JSON Mock
+        </button>
+        <button
+          type="button"
+          onclick="ApiClient.logout()"
+          title="Cerrar sesión"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium bg-rose-950/60 hover:bg-rose-500/20 text-rose-300 hover:text-white border border-rose-500/30 transition cursor-pointer"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span>Salir</span>
+        </button>
+      </div>
     </div>
   </header>
 
@@ -200,6 +213,9 @@
 
   </main>
 
+  <!-- Cliente HTTP JWT -->
+  <script src="assets/js/api.js"></script>
+
   <script>
     const DEFAULT_MOCK_DATA = {
       "inventario": {
@@ -232,6 +248,9 @@
     let opticalHealthChart = null;
 
     window.addEventListener('DOMContentLoaded', () => {
+      if (typeof ApiClient !== 'undefined' && !ApiClient.requireAuth()) {
+        return;
+      }
       document.getElementById('jsonTextarea').value = JSON.stringify(dashboardData, null, 2);
       renderDashboard();
     });
@@ -310,7 +329,7 @@
           <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full" style="background:${colors[i]}"></span>
-              <span class="text-xs text-slate-300">${label}</span>
+              <span class="text-xs text-slate-300">${escapeHtml(label)}</span>
             </div>
             <span class="text-xs font-mono font-semibold text-white">${values[i]} <span class="text-slate-500 font-normal">(${pct}%)</span></span>
           </div>

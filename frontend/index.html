@@ -72,6 +72,17 @@
         </svg>
         <span class="hidden md:inline">Auditoría NAP</span>
       </button>
+      <button
+        type="button"
+        onclick="ApiClient.logout()"
+        title="Cerrar sesión"
+        class="px-3 py-1.5 rounded-md text-xs font-medium text-rose-300 hover:text-white hover:bg-rose-500/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+        </svg>
+        <span class="hidden sm:inline">Salir</span>
+      </button>
     </nav>
 
     <!-- Indicadores Resumen (Renderizados dinámicamente) -->
@@ -356,7 +367,8 @@
     crossorigin=""
   ></script>
 
-  <!-- Componentes UI y Controlador GIS -->
+  <!-- Cliente HTTP JWT, Componentes UI y Controladores GIS -->
+  <script src="assets/js/api.js"></script>
   <script src="assets/js/components.js"></script>
   <script src="assets/js/map.js"></script>
   <script src="assets/js/telemetry.js"></script>
@@ -394,6 +406,15 @@
     };
 
     let graficoPuertosChart = null;
+
+    function escapeAuditHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
 
     async function cargarAuditoriaNap(napId = 1) {
       let data = MOCK_DETALLES_NAPS[napId] || MOCK_DETALLES_NAPS[1];
@@ -463,18 +484,18 @@
         }
       });
 
-      // Panel de alertas
+      // Panel de alertas (sanitizado contra XSS)
       document.getElementById("total-alertas").textContent = `${alertas.length} activa(s)`;
       document.getElementById("lista-alertas").innerHTML = alertas.length
         ? alertas.map(a => `
             <div class="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs flex justify-between items-center">
-              <span><strong>Puerto #${a.numero_puerto}</strong> · Cliente ${a.codigo_cliente} (${a.estado_puerto})</span>
-              <span class="font-mono font-bold text-rose-600">${a.ultima_lectura?.potencia_rx_1490_dbm} dBm</span>
+              <span><strong>Puerto #${escapeAuditHtml(a.numero_puerto)}</strong> · Cliente ${escapeAuditHtml(a.codigo_cliente || "N/A")} (${escapeAuditHtml(a.estado_puerto)})</span>
+              <span class="font-mono font-bold text-rose-600">${escapeAuditHtml(a.ultima_lectura?.potencia_rx_1490_dbm ?? "--")} dBm</span>
             </div>
           `).join("")
         : `<p class="text-xs text-gray-400">Sin alertas críticas.</p>`;
 
-      // Tira de puertos 1 al N
+      // Tira de puertos 1 al N (sanitizada contra XSS)
       document.getElementById("grid-puertos").innerHTML = puertos.map(p => {
         const esCritico = p.estado_puerto === "ATENUACION_ALTA" || p.ultima_lectura?.estado_calculado === "CRITICO";
         const color = esCritico
@@ -483,10 +504,14 @@
             ? "bg-blue-50 border-blue-300 text-blue-700"
             : "bg-emerald-50 border-emerald-300 text-emerald-700";
 
+        const potenciaTexto = p.ultima_lectura
+          ? `${escapeAuditHtml(p.ultima_lectura.potencia_rx_1490_dbm)} dBm`
+          : "Libre";
+
         return `
           <div class="p-2.5 rounded-lg border ${color}">
-            <div class="text-xs font-bold">P${p.numero_puerto}</div>
-            <div class="text-[10px] font-mono mt-0.5">${p.ultima_lectura ? p.ultima_lectura.potencia_rx_1490_dbm + " dBm" : "Libre"}</div>
+            <div class="text-xs font-bold">P${escapeAuditHtml(p.numero_puerto)}</div>
+            <div class="text-[10px] font-mono mt-0.5">${potenciaTexto}</div>
           </div>
         `;
       }).join("");

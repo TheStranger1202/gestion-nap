@@ -1,8 +1,11 @@
+import json
 import re
 import subprocess
 import time
 import pytest
 from playwright.sync_api import Page, expect
+
+from app.api.v1.auth import create_access_token
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -20,9 +23,59 @@ def static_server():
 
 def test_formulario_telemetria_validacion_y_envio(page: Page, static_server: str):
     js_errors = []
+    submitted_payloads = []
     page.on("pageerror", lambda err: js_errors.append(str(err)))
 
-    page.goto(static_server, wait_until="networkidle")
+    token = create_access_token(subject="operador@gestionnap.ve", role="operador")
+    page.add_init_script(
+        f"""
+        localStorage.setItem('access_token', '{token}');
+        localStorage.setItem('token_type', 'bearer');
+        """
+    )
+
+    page.route(
+        "**/api/v1/naps/",
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                [
+                    {
+                        "id": 1,
+                        "codigo_nap": "PLZ-Z04-NCA-D001-012-A",
+                        "zona": "Z04",
+                        "sector": "NCA",
+                        "ubicacion_referencia": "Nueva Casarapa, Poste 32",
+                        "latitud": 10.457890,
+                        "longitud": -66.589410,
+                        "estado_fisico": "OPERATIVO",
+                        "capacidad_puertos": 8,
+                        "estado_general": "OPTIMO",
+                    }
+                ]
+            ),
+        ),
+    )
+
+    def handle_post_lectura(route):
+        body = route.request.post_data_json
+        submitted_payloads.append(body)
+        route.fulfill(
+            status=201,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "mensaje": "Lectura de telemetría procesada exitosamente",
+                    "numero_puerto": body["numero_puerto"],
+                    "diagnostico": "OPTIMO",
+                    "potencia_rx_1490_dbm": body["potencia_rx_1490_dbm"],
+                }
+            ),
+        )
+
+    page.route("**/api/v1/naps/lecturas", handle_post_lectura)
+    page.goto(f"{static_server}/index.html", wait_until="networkidle")
 
     # 1. Verificar ausencia de errores JS y presencia del panel flotante
     assert len(js_errors) == 0, f"Se detectaron errores JS: {js_errors}"
@@ -51,18 +104,24 @@ def test_formulario_telemetria_validacion_y_envio(page: Page, static_server: str
     submit_btn.click()
     expect(toast_container).to_be_empty()
     expect(power_input).to_have_attribute("aria-invalid", "true")
+    assert len(submitted_payloads) == 0
 
     # 5. Marcar bandera en window para confirmar que e.preventDefault() evita recarga
     page.evaluate("window.__no_page_reload = true")
 
-    # 6. Completar lectura válida con potencia negativa y enviar
+    # 6. Completar lectura válida con potencia negativa y enviar al backend
     power_input.fill("-15.50")
     submit_btn.click()
 
     assert page.evaluate("window.__no_page_reload") is True
 
-    # 7. Verificar Toast de confirmación y limpieza automática del formulario
-    expect(toast_container).to_contain_text("Lectura registrada con éxito")
+    # 7. Verificar Toast con dictamen del backend, payload enviado y limpieza del formulario
+    expect(toast_container).to_contain_text("Lectura registrada · Diagnóstico: OPTIMO")
+    assert len(submitted_payloads) == 1
+    assert submitted_payloads[0]["codigo_nap"] == "PLZ-Z04-NCA-D001-012-A"
+    assert submitted_payloads[0]["numero_puerto"] == 8
+    assert submitted_payloads[0]["potencia_rx_1490_dbm"] == -15.5
+
     expect(nap_input).to_have_value("")
     expect(nap_input).to_have_class(re.compile(r".*border-slate-300.*"))
     expect(port_select).to_have_value("")

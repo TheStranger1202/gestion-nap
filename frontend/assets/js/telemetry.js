@@ -1,14 +1,12 @@
 /**
- * Módulo de ingesta simulada de telemetría óptica en campo.
+ * Módulo de ingesta de telemetría óptica en campo conectado al backend FastAPI.
  * Valida nomenclatura NAP del Municipio Plaza y parámetros de potencia GPON.
  */
 (() => {
   'use strict';
 
-  // Expresión regular estricta definida en la especificación territorial
   const NAP_CODE_REGEX = /^PLZ-Z0[1-8]-[A-Z]{3}-D\d{3}-\d{3}-[AFS]$/;
 
-  // Catálogo inmutable de sectores válidos por Zona Operativa (referencia informativa)
   const ZOD_SECTORS = Object.freeze({
     Z01: Object.freeze(['CEN', 'PAR', 'LLA', 'COM']),
     Z02: Object.freeze(['CLA', 'CUR', 'TAM', 'GUA']),
@@ -20,17 +18,15 @@
     Z08: Object.freeze(['VVE', 'GIR', 'BVT']),
   });
 
-  // Límites operativos y de validación estricta
   const LIMITS = Object.freeze({
     PORT_MIN: 1,
     PORT_MAX: 16,
     POWER_MIN: -50.0,
     POWER_MAX: 5.0,
     POWER_DECIMAL_REGEX: /^-?\d+(\.\d{1,2})?$/,
-    TOAST_DURATION_MS: 3500,
+    TOAST_DURATION_MS: 4000,
   });
 
-  // Clases visuales de borde para estados del input Código NAP
   const BORDER_CLASSES = Object.freeze({
     NEUTRAL: ['border-slate-300', 'focus:border-slate-600'],
     VALID: ['border-emerald-500', 'ring-2', 'ring-emerald-500/20', 'focus:border-emerald-600'],
@@ -77,7 +73,6 @@
     let isSubmitting = false;
     let activeToastTimeout = null;
 
-    // Aislar eventos del panel flotante para no propagar clics o scroll al mapa Leaflet
     if (window.L && window.L.DomEvent) {
       window.L.DomEvent.disableClickPropagation(panel);
       window.L.DomEvent.disableScrollPropagation(panel);
@@ -87,7 +82,6 @@
       });
     }
 
-    // Colapsar / expandir tarjeta en campo o pantallas móviles
     if (toggleBtn && formBody) {
       toggleBtn.addEventListener('click', () => {
         const isExpanded = toggleBtn.getAttribute('aria-expanded') === 'true';
@@ -100,22 +94,12 @@
       });
     }
 
-    /**
-     * Aplica estilos de borde de Tailwind según el estado de validación.
-     * @param {HTMLElement} element
-     * @param {'NEUTRAL'|'VALID'|'INVALID'} state
-     */
     function applyBorderState(element, state) {
       element.classList.remove(...ALL_BORDER_TOKENS);
       element.classList.add(...BORDER_CLASSES[state]);
       element.setAttribute('aria-invalid', state === 'INVALID' ? 'true' : 'false');
     }
 
-    /**
-     * Valida el Código NAP en tiempo real usando estrictamente NAP_CODE_REGEX.
-     * @param {boolean} forceEvaluation - Fuerza evaluación aunque el campo esté vacío.
-     * @returns {boolean}
-     */
     function validateNapCode(forceEvaluation = false) {
       const value = napInput.value;
 
@@ -150,10 +134,6 @@
       return false;
     }
 
-    /**
-     * Valida que el puerto sea un entero estricto entre 1 y 16.
-     * @returns {boolean}
-     */
     function validatePort() {
       const raw = portSelect.value.trim();
       const port = Number(raw);
@@ -180,10 +160,6 @@
       return false;
     }
 
-    /**
-     * Valida la potencia óptica (dBm) con tolerancia a valores negativos y 2 decimales.
-     * @returns {boolean}
-     */
     function validatePower() {
       const raw = powerInput.value.trim();
 
@@ -220,10 +196,6 @@
       return true;
     }
 
-    /**
-     * Marca error visual en el campo de potencia.
-     * @param {string} message
-     */
     function setPowerError(message) {
       powerInput.classList.remove('border-slate-300');
       powerInput.classList.add('border-rose-500');
@@ -232,11 +204,7 @@
       powerFeedback.textContent = message;
     }
 
-    /**
-     * Renderiza notificación flotante Toast segura mediante nodos DOM (sin innerHTML).
-     * @param {string} message
-     */
-    function showToast(message) {
+    function showToast(message, isError = false) {
       if (activeToastTimeout !== null) {
         clearTimeout(activeToastTimeout);
         activeToastTimeout = null;
@@ -246,12 +214,14 @@
         toastContainer.removeChild(toastContainer.firstChild);
       }
 
+      const borderClass = isError ? 'border-rose-500/70' : 'border-emerald-500/60';
+      const dotClass = isError ? 'bg-rose-400' : 'bg-emerald-400';
+
       const toast = document.createElement('div');
-      toast.className =
-        'pointer-events-auto flex items-center gap-2.5 bg-slate-900 text-white border border-emerald-500/60 px-4 py-3 rounded-xl shadow-2xl text-xs font-medium transition-all duration-200';
+      toast.className = `pointer-events-auto flex items-center gap-2.5 bg-slate-900 text-white border ${borderClass} px-4 py-3 rounded-xl shadow-2xl text-xs font-medium transition-all duration-200`;
 
       const indicator = document.createElement('span');
-      indicator.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0';
+      indicator.className = `w-2.5 h-2.5 rounded-full ${dotClass} shrink-0`;
 
       const textNode = document.createElement('span');
       textNode.textContent = message;
@@ -268,9 +238,6 @@
       }, LIMITS.TOAST_DURATION_MS);
     }
 
-    /**
-     * Restablece el formulario y limpia todos los estados visuales de validación.
-     */
     function resetFormState() {
       form.reset();
       isNapDirty = false;
@@ -291,7 +258,6 @@
       powerFeedback.textContent = '';
     }
 
-    // Listeners de validación en tiempo real
     napInput.addEventListener('input', () => {
       isNapDirty = true;
       validateNapCode(false);
@@ -316,8 +282,7 @@
       }
     });
 
-    // Intercepción del envío del formulario
-    form.addEventListener('submit', (e) => {
+    form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       if (isSubmitting) {
@@ -345,20 +310,34 @@
 
       try {
         const parsedPower = Number(powerInput.value.trim());
+        const normalizedPower = parsedPower === 0 ? 0 : parsedPower;
+        const codigoNap = napInput.value;
+        const puerto = Number(portSelect.value);
+
+        const apiResponse = await ApiClient.submitTelemetry({
+          codigo_nap: codigoNap,
+          puerto,
+          potencia_dbm: normalizedPower,
+        });
+
+        const diagnostico = apiResponse?.diagnostico || 'OPTIMO';
+
         const telemetryPayload = Object.freeze({
-          codigo_nap: napInput.value,
-          puerto: Number(portSelect.value),
-          potencia_dbm: parsedPower === 0 ? 0 : parsedPower,
+          codigo_nap: codigoNap,
+          puerto,
+          potencia_dbm: normalizedPower,
+          diagnostico,
           timestamp: new Date().toISOString(),
         });
 
-        // Evento desacoplado listo para futura integración con API REST / mapa
         document.dispatchEvent(
           new CustomEvent('nap:telemetry-submitted', { detail: telemetryPayload })
         );
 
         resetFormState();
-        showToast('Lectura registrada con éxito');
+        showToast(`Lectura registrada · Diagnóstico: ${diagnostico}`);
+      } catch (err) {
+        showToast(err.message || 'No se pudo registrar la lectura en el servidor.', true);
       } finally {
         isSubmitting = false;
         submitBtn.disabled = false;
