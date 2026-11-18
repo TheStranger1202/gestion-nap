@@ -29,9 +29,9 @@
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
 
-  <!-- Barra Superior Minimalista -->
+  <!-- Barra Superior con Navegación -->
   <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-20 backdrop-blur-md">
-    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-4">
       <div class="flex items-center gap-3">
         <div class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -43,6 +43,30 @@
           <p class="text-xs text-slate-400">Monitoreo de Red Óptica</p>
         </div>
       </div>
+
+      <!-- Navegación entre Vistas -->
+      <nav aria-label="Navegación principal" class="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+        <a
+          href="index.html"
+          class="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800/70 transition-colors flex items-center gap-1.5"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+          <span>Mapa GIS</span>
+        </a>
+        <a
+          href="dashboard.html"
+          aria-current="page"
+          class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1.5"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
+          </svg>
+          <span>Dashboard</span>
+        </a>
+      </nav>
 
       <!-- Botón Discreto para Editar JSON -->
       <button onclick="toggleJsonEditor()" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer">
@@ -177,7 +201,6 @@
   </main>
 
   <script>
-    // Datos exactos proporcionados en dashboard_kpis_mock.json
     const DEFAULT_MOCK_DATA = {
       "inventario": {
         "total_cajas_nap": 120,
@@ -227,7 +250,6 @@
       const critico = Number(salud_optica?.critico) || 0;
       const caido = Number(salud_optica?.caido) || 0;
 
-      // Actualizar KPIs
       document.getElementById('kpiTotalNaps').textContent = totalNaps.toLocaleString('en-US');
       document.getElementById('kpiTotalPorts').textContent = totalPorts.toLocaleString('en-US');
       document.getElementById('kpiConnected').textContent = conectados.toLocaleString('en-US');
@@ -382,7 +404,6 @@
       }).join('');
     }
 
-    // Editor JSON
     function toggleJsonEditor() {
       const panel = document.getElementById('jsonEditorPanel');
       panel.classList.toggle('hidden');
