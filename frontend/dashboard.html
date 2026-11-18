@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard FTTH y Alertas</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Fuente Inter y JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen">
+
+  <!-- Barra Superior Minimalista -->
+  <header class="border-b border-slate-800/80 bg-slate-950/90 sticky top-0 z-20 backdrop-blur-md">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.14 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base sm:text-lg font-bold text-white leading-tight">Dashboard FTTH & Alertas</h1>
+          <p class="text-xs text-slate-400">Monitoreo de Red Óptica</p>
+        </div>
+      </div>
+
+      <!-- Botón Discreto para Editar JSON -->
+      <button onclick="toggleJsonEditor()" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition cursor-pointer">
+        <svg class="w-3.5 h-3.5 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+        </svg>
+        Editar JSON Mock
+      </button>
+    </div>
+  </header>
+
+  <!-- Notificación Toast Simple -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Contenedor Principal -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- Editor Desplegable de JSON -->
+    <section id="jsonEditorPanel" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-xs font-mono text-slate-300">dashboard_kpis_mock.json</span>
+        <div class="flex items-center gap-2">
+          <button onclick="resetDefaultJson()" class="px-2.5 py-1 rounded-lg text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer">
+            Restaurar
+          </button>
+          <button onclick="applyJsonFromEditor()" class="px-3 py-1 rounded-lg text-xs font-semibold bg-cyan-600 hover:bg-cyan-500 text-white transition cursor-pointer">
+            Actualizar Vista
+          </button>
+          <button onclick="toggleJsonEditor()" class="px-2 py-1 rounded-lg text-xs text-slate-400 hover:text-white transition cursor-pointer">
+            ✕
+          </button>
+        </div>
+      </div>
+      <textarea id="jsonTextarea" rows="10" spellcheck="false" class="w-full bg-slate-950 text-emerald-300 font-mono text-xs p-3.5 rounded-xl border border-slate-800 focus:outline-none focus:border-cyan-500"></textarea>
+      <p id="jsonErrorMsg" class="hidden text-xs text-rose-400 font-mono"></p>
+    </section>
+
+    <!-- 4 Tarjetas KPI Superiores -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- KPI 1: Total Cajas NAP -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+        <p class="text-xs font-medium text-slate-400">Total Cajas NAP</p>
+        <p id="kpiTotalNaps" class="text-3xl font-bold text-white font-mono mt-2">120</p>
+      </div>
+
+      <!-- KPI 2: Total Puertos -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+        <p class="text-xs font-medium text-slate-400">Total Puertos</p>
+        <p id="kpiTotalPorts" class="text-3xl font-bold text-white font-mono mt-2">1,248</p>
+      </div>
+
+      <!-- KPI 3: Puertos Conectados -->
+      <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-medium text-slate-400">Puertos Conectados</p>
+          <span id="kpiConnectedPct" class="text-xs font-mono font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">71.3%</span>
+        </div>
+        <p id="kpiConnected" class="text-3xl font-bold text-emerald-400 font-mono mt-2">890</p>
+      </div>
+
+      <!-- KPI 4: Puertos Dañados -->
+      <div class="bg-slate-900/80 border border-rose-500/30 rounded-2xl p-5">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-medium text-rose-300/90">Puertos Dañados</p>
+          <span id="kpiDamagedPct" class="text-xs font-mono font-semibold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-md">3.0%</span>
+        </div>
+        <p id="kpiDamaged" class="text-3xl font-bold text-rose-400 font-mono mt-2">38</p>
+      </div>
+    </section>
+
+    <!-- 2 Visualizaciones Claras -->
+    <section class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- Gráfico 1: Estado de Puertos (Dona) -->
+      <div class="lg:col-span-5 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+        <div class="mb-4">
+          <h2 class="text-sm font-semibold text-white">Estado de Puertos</h2>
+          <p class="text-xs text-slate-400">Distribución de capacidad instalada</p>
+        </div>
+
+        <div class="relative w-full max-w-[220px] mx-auto aspect-square my-2">
+          <canvas id="portsDonutChart"></canvas>
+          <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span class="text-[11px] text-slate-400">Total</span>
+            <span id="donutCenterTotal" class="text-xl font-bold text-white font-mono">1,248</span>
+          </div>
+        </div>
+
+        <!-- Leyenda Limpia -->
+        <div id="portsLegendGrid" class="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-slate-800/80"></div>
+      </div>
+
+      <!-- Gráfico 2: Salud Óptica (Barras Horizontales) -->
+      <div class="lg:col-span-7 bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+        <div class="mb-4">
+          <h2 class="text-sm font-semibold text-white">Salud Óptica</h2>
+          <p class="text-xs text-slate-400">Estado de señal en puertos activos (Óptimo, Crítico y Caído)</p>
+        </div>
+
+        <div class="relative w-full h-56 sm:h-64 my-auto">
+          <canvas id="opticalHealthChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Tabla Limpia de Alertas Recientes -->
+    <section class="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
+      <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          <h2 class="text-sm font-semibold text-white">Alertas Recientes</h2>
+        </div>
+        <span id="alertsCountBadge" class="text-xs font-mono text-rose-300 bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 rounded-full">1</span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800/80 text-[11px] uppercase tracking-wider text-slate-400 bg-slate-950/40">
+              <th class="py-3 px-5">Nivel</th>
+              <th class="py-3 px-5">Código NAP</th>
+              <th class="py-3 px-5">Puerto</th>
+              <th class="py-3 px-5">Motivo</th>
+            </tr>
+          </thead>
+          <tbody id="alertsTableBody" class="divide-y divide-slate-800/60 text-sm"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // Datos exactos proporcionados en dashboard_kpis_mock.json
+    const DEFAULT_MOCK_DATA = {
+      "inventario": {
+        "total_cajas_nap": 120,
+        "total_puertos": 1248
+      },
+      "estado_puertos": {
+        "conectados": 890,
+        "disponibles": 300,
+        "reservados": 20,
+        "danados": 38
+      },
+      "salud_optica": {
+        "optimo": 850,
+        "critico": 35,
+        "caido": 5
+      },
+      "alertas_recientes": [
+        {
+          "codigo_nap": "PLZ-Z01-CEN-D001-001-A",
+          "puerto": 2,
+          "motivo": "Caída óptica severa (-31.0 dBm)",
+          "nivel": "CRITICO"
+        }
+      ]
+    };
+
+    let dashboardData = JSON.parse(JSON.stringify(DEFAULT_MOCK_DATA));
+    let portsDonutChart = null;
+    let opticalHealthChart = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('jsonTextarea').value = JSON.stringify(dashboardData, null, 2);
+      renderDashboard();
+    });
+
+    function renderDashboard() {
+      const { inventario, estado_puertos, salud_optica, alertas_recientes } = dashboardData;
+
+      const totalNaps = Number(inventario?.total_cajas_nap) || 0;
+      const totalPorts = Number(inventario?.total_puertos) || 0;
+      const conectados = Number(estado_puertos?.conectados) || 0;
+      const disponibles = Number(estado_puertos?.disponibles) || 0;
+      const reservados = Number(estado_puertos?.reservados) || 0;
+      const danados = Number(estado_puertos?.danados) || 0;
+
+      const optimo = Number(salud_optica?.optimo) || 0;
+      const critico = Number(salud_optica?.critico) || 0;
+      const caido = Number(salud_optica?.caido) || 0;
+
+      // Actualizar KPIs
+      document.getElementById('kpiTotalNaps').textContent = totalNaps.toLocaleString('en-US');
+      document.getElementById('kpiTotalPorts').textContent = totalPorts.toLocaleString('en-US');
+      document.getElementById('kpiConnected').textContent = conectados.toLocaleString('en-US');
+      document.getElementById('kpiDamaged').textContent = danados.toLocaleString('en-US');
+
+      const connPct = totalPorts > 0 ? ((conectados / totalPorts) * 100).toFixed(1) : '0.0';
+      const dmgPct = totalPorts > 0 ? ((danados / totalPorts) * 100).toFixed(1) : '0.0';
+      document.getElementById('kpiConnectedPct').textContent = `${connPct}%`;
+      document.getElementById('kpiDamagedPct').textContent = `${dmgPct}%`;
+      document.getElementById('donutCenterTotal').textContent = totalPorts.toLocaleString('en-US');
+
+      renderPortsChart({ conectados, disponibles, reservados, danados }, totalPorts);
+      renderOpticalChart({ optimo, critico, caido });
+      renderAlertsTable(alertas_recientes);
+    }
+
+    function renderPortsChart(ports, totalPorts) {
+      const ctx = document.getElementById('portsDonutChart').getContext('2d');
+      const labels = ['Conectados', 'Disponibles', 'Reservados', 'Dañados'];
+      const values = [ports.conectados, ports.disponibles, ports.reservados, ports.danados];
+      const colors = ['#10b981', '#06b6d4', '#f59e0b', '#f43f5e'];
+
+      if (portsDonutChart) portsDonutChart.destroy();
+
+      portsDonutChart = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: colors,
+            borderColor: '#0f172a',
+            borderWidth: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          cutout: '72%',
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1,
+              callbacks: {
+                label: (c) => ` ${c.label}: ${c.parsed.toLocaleString('en-US')}`
+              }
+            }
+          }
+        }
+      });
+
+      const sum = values.reduce((a, b) => a + b, 0) || totalPorts || 1;
+      document.getElementById('portsLegendGrid').innerHTML = labels.map((label, i) => {
+        const pct = ((values[i] / sum) * 100).toFixed(1);
+        return `
+          <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-950/60 border border-slate-800/80">
+            <div class="flex items-center gap-2">
+              <span class="w-2.5 h-2.5 rounded-full" style="background:${colors[i]}"></span>
+              <span class="text-xs text-slate-300">${label}</span>
+            </div>
+            <span class="text-xs font-mono font-semibold text-white">${values[i]} <span class="text-slate-500 font-normal">(${pct}%)</span></span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderOpticalChart(optical) {
+      const ctx = document.getElementById('opticalHealthChart').getContext('2d');
+      const labels = ['Óptimo', 'Crítico', 'Caído'];
+      const values = [optical.optimo, optical.critico, optical.caido];
+
+      if (opticalHealthChart) opticalHealthChart.destroy();
+
+      opticalHealthChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
+            borderRadius: 8,
+            barThickness: 32
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              borderColor: '#334155',
+              borderWidth: 1,
+              callbacks: {
+                label: (c) => ` ${c.parsed.x.toLocaleString('en-US')} puertos`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 11 } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { color: '#e2e8f0', font: { family: 'Inter', size: 12, weight: '500' } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAlertsTable(alertsList) {
+      const alerts = Array.isArray(alertsList) ? alertsList : [];
+      document.getElementById('alertsCountBadge').textContent = alerts.length;
+      const tbody = document.getElementById('alertsTableBody');
+
+      if (alerts.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-xs text-slate-500">Sin alertas recientes</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = alerts.map(a => {
+        const nivel = escapeHtml(String(a.nivel || 'CRITICO').toUpperCase());
+        const isCritical = nivel === 'CRITICO';
+        const badgeStyle = isCritical
+          ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+          : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+
+        return `
+          <tr class="hover:bg-slate-800/30 transition">
+            <td class="py-3.5 px-5 whitespace-nowrap">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badgeStyle}">
+                <span class="w-1.5 h-1.5 rounded-full bg-current"></span>
+                ${nivel}
+              </span>
+            </td>
+            <td class="py-3.5 px-5 whitespace-nowrap font-mono text-xs font-semibold text-cyan-300">
+              ${escapeHtml(a.codigo_nap)}
+            </td>
+            <td class="py-3.5 px-5 whitespace-nowrap font-mono text-xs text-slate-300">
+              Puerto ${escapeHtml(String(a.puerto))}
+            </td>
+            <td class="py-3.5 px-5 text-xs sm:text-sm text-slate-200">
+              ${escapeHtml(a.motivo)}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Editor JSON
+    function toggleJsonEditor() {
+      const panel = document.getElementById('jsonEditorPanel');
+      panel.classList.toggle('hidden');
+      document.getElementById('jsonErrorMsg').classList.add('hidden');
+    }
+
+    function applyJsonFromEditor() {
+      const errorEl = document.getElementById('jsonErrorMsg');
+      try {
+        const parsed = JSON.parse(document.getElementById('jsonTextarea').value);
+        if (!parsed.inventario || !parsed.estado_puertos || !parsed.salud_optica) {
+          throw new Error('El JSON debe contener inventario, estado_puertos y salud_optica.');
+        }
+        dashboardData = parsed;
+        errorEl.classList.add('hidden');
+        renderDashboard();
+        toggleJsonEditor();
+        showToast('Dashboard actualizado con el nuevo JSON');
+      } catch (err) {
+        errorEl.textContent = `Error JSON: ${err.message}`;
+        errorEl.classList.remove('hidden');
+      }
+    }
+
+    function resetDefaultJson() {
+      dashboardData = JSON.parse(JSON.stringify(DEFAULT_MOCK_DATA));
+      document.getElementById('jsonTextarea').value = JSON.stringify(dashboardData, null, 2);
+      document.getElementById('jsonErrorMsg').classList.add('hidden');
+      renderDashboard();
+      showToast('Datos originales restaurados');
+    }
+
+    function showToast(msg) {
+      const container = document.getElementById('toastContainer');
+      const el = document.createElement('div');
+      el.className = 'bg-slate-900 border border-cyan-500/40 text-cyan-200 text-xs font-medium px-4 py-2.5 rounded-xl shadow-lg transition-opacity duration-300';
+      el.textContent = msg;
+      container.appendChild(el);
+      setTimeout(() => {
+        el.style.opacity = '0';
+        setTimeout(() => el.remove(), 300);
+      }, 2500);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+  </script>
+</body>
+</html>
