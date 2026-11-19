@@ -2,7 +2,7 @@
 
 **Proyecto:** Gestión NAP — Sistema de Inventario, Telemetría Óptica y Auditoría de Planta Externa  
 **Módulo Documentado:** Capa de Persistencia (`app/core/database.py`), Modelos Relacionales (`app/models/`), Modelado ER (`doc/diagrama/`) y Pruebas TDD (`tests/test_models.py`)  
-**Stack Tecnológico:** Python 3 + FastAPI + SQLModel (SQLAlchemy + Pydantic v2) + SQLite + Pytest  
+**Stack Tecnológico:** Python 3.13+ + FastAPI + SQLModel (SQLAlchemy + Pydantic v2) + SQLite + Pytest  
 
 ---
 
@@ -10,11 +10,12 @@
 
 En ingeniería de software formal (alineada con los procesos de trazabilidad de la norma **ISO/IEC/IEEE 12207**), el código fuente expresa *cómo* funciona un sistema, pero solo la documentación técnica demuestra *por qué* fue diseñado de esa manera, bajo qué restricciones opera y cómo puede evolucionar sin romperse.
 
-Para el proyecto **Gestión NAP**, esta documentación cumple cuatro objetivos críticos:
+Para el proyecto **Gestión NAP**, esta documentación cumple tres objetivos críticos:
 
 1. **Trazabilidad y Evidencia Académica:** Demuestra que el esquema de base de datos no es una colección improvisada de tablas, sino la traducción directa de estándares reales de telecomunicaciones (**ITU-T G.984**, **TIA/EIA-598**, **TM Forum SID**) y reglas territoriales del Municipio Plaza (Guarenas).
 2. **Contrato de Integración Futura (OLT/SNMP y CRM):** Establece las llaves naturales, coordenadas jerárquicas PON y campos OID necesarios para conectar recolectores SNMP reales (Huawei/ZTE) sin tener que rediseñar ni migrar destructivamente la base de datos.
 3. **Blindaje de Seguridad e Integridad:** Documenta las defensas activas contra corrupción de datos (llaves foráneas forzadas en SQLite, restricciones compuestas `UNIQUE`, validaciones cruzadas de dominio) y las responsabilidades delegadas a las capas superiores.
+
 ---
 
 ## 2. Estándares de la Industria Aplicados al Diseño
@@ -52,9 +53,9 @@ El diagrama entidad-relación formal reside en `doc/diagrama/modelo_relacional_n
 ### Diccionario de Entidades y Decisiones de Diseño
 
 #### 3.1. Tabla `users` (`app/models/user.py`)
-* **Propósito:** Gestionar credenciales cifradas y el Control de Acceso Basado en Roles (**RBAC**: `ADMIN`, `TECNICO`, `AUDITOR`).
+* **Propósito:** Gestionar credenciales cifradas y el Control de Acceso Basado en Roles (**RBAC**: `admin` y `operador`).
 * **Claves e Índices:** `id` (PK), `username` (`UNIQUE`, `INDEX`), `email` (`UNIQUE`).
-* **Seguridad:** Almacena únicamente `hashed_password` (cifrado con `bcrypt`), nunca contraseñas en texto plano.
+* **Seguridad:** Almacena únicamente `hashed_password` (derivado mediante **PBKDF2** con verificación en tiempo constante), nunca contraseñas en texto plano.
 
 #### 3.2. Tabla `naps` (`app/models/nap.py`)
 * **Propósito:** Inventario georreferenciado (WGS84) de las Cajas de Acceso Terminal en el Municipio Plaza, incluyendo su trazabilidad de fibra óptica y anclaje hacia cabecera OLT.
@@ -123,34 +124,31 @@ Importa y reexporta en un único punto todas las clases de `user.py` y `nap.py`.
 ### Edge Cases Analizados (Cubiertos y Delegados)
 1. **Incoherencia Territorial Sintácticamente Válida:** Un código como `PLZ-Z01-NCA-D001-001-A` cumple la expresión regular, pero `NCA` pertenece a `Z04`. **Estado:** Bloqueado en `NAPBase` mediante `@model_validator`.
 2. **Desajuste Capacidad vs. Splitter:** Intentar registrar una caja de 8 puertos con splitter `1:16`. **Estado:** Bloqueado en `NAPBase`.
-3. **La Trampa de `table=True` en SQLModel:** En Pydantic v2 / SQLModel, instanciar directamente una clase con `table=True` (ej. `NAP(...)`) omite los validadores de Pydantic; la validación se ejecuta al validar contra `NAPCreate` o invocar `NAP.model_validate()`. **Mitigación:** Los endpoints y scripts (`seed.py`) siempre validarán entradas mediante `*Create` antes de persistir.
+3. **La Trampa de `table=True` en SQLModel:** En Pydantic v2 / SQLModel, instanciar directamente una clase con `table=True` (ej. `NAP(...)`) omite los validadores de Pydantic; la validación se ejecuta al validar contra `NAPCreate` o invocar `NAP.model_validate()`. **Mitigación:** Los endpoints y scripts (`seed_db.py`) siempre validarán entradas mediante `*Create` antes de persistir.
 4. **Desbordamiento de Puertos por Capacidad y Auditorías Cruzadas:** SQLite valida `1 <= numero_puerto <= 16` y que `puerto_id` exista, pero no verifica si el puerto `9` pertenece a una NAP de capacidad `8` ni si `auditoria.puerto_id` pertenece realmente a `auditoria.nap_id`. **Mitigación:** Validación explícita en la capa de servicios (`app/services/nap_service.py`).
 
 ---
 
 ## 6. Guía Paso a Paso de Ejecución y Verificación (TDD)
 
-Para reproducir o auditar todo el trabajo realizado hasta este punto desde cero:
+Para reproducir o auditar todo el trabajo realizado desde cero:
 
 1. **Activar el entorno virtual aislado e instalar dependencias:**
    ```bash
-   cd ~/proyectos/universidad/gestion-nap
+   cd gestion-nap
    source venv/bin/activate
    pip install -r requirements.txt
    ```
-2. **Renderizar el diagrama Entidad-Relación (opcional para visualización PNG/SVG):**
+2. **Poblar la base de datos piloto:**
+   ```bash
+   python3 seed_db.py
+   ```
+3. **Renderizar el diagrama Entidad-Relación (opcional para visualización PNG/SVG):**
    ```bash
    plantuml doc/diagrama/modelo_relacional_nap.puml
    ```
-3. **Ejecutar la suite de pruebas unitarias TDD (`tests/test_models.py`):**
+4. **Ejecutar la suite de pruebas automatizadas (`tests/test_models.py`):**
    Las pruebas levantan una base de datos SQLite efímera en memoria (`sqlite:///:memory:`) con `PRAGMA foreign_keys=ON` para validar sin alterar `gestion_nap.db`:
    ```bash
    pytest -v
    ```
-4. **Verificar el historial de trazabilidad en Git (Conventional Commits):**
-   ```bash
-   git log --oneline
-   ```
-
----
-
